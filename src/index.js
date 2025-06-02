@@ -5,7 +5,7 @@ import seedAdmin from "./seed/seedAdmin.js";
 
 dotenv.config({ path: "./.env" });
 
-connectDB
+connectDB()
     .then(async () => {
         await seedAdmin();
         const server = app.listen(process.env.PORT || 8000, () =>

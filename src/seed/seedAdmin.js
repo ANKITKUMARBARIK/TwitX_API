@@ -10,6 +10,7 @@ const seedAdmin = async () => {
                 username: "admin",
                 email: process.env.ADMIN_EMAIL,
                 password: process.env.ADMIN_PASSWORD,
+                bio: "manage TwitX service",
                 avatar: "avatar.png",
                 coverImage: "coverImage.png",
                 timezone: "Asia/Kolkata",
