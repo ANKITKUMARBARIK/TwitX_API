@@ -10,6 +10,7 @@ import verifySignupMail from "../services/verifySignupMail.service.js";
 import welcomeSignupMail from "../services/welcomeSignupMail.service.js";
 import generateAccessAndRefreshToken from "../services/token.service.js";
 import User from "../models/user.model.js";
+import { sanitizeUser, setAuthCookies } from "../utils/auth.util.js";
 
 export const registerUser = asyncHandler(async (req, res) => {
     const { fullName, username, email, password, bio, timezone } = req.body;
@@ -118,16 +119,24 @@ export const verifyOtpSignup = asyncHandler(async (req, res) => {
 
     await welcomeSignupMail(existedUser.fullName, existedUser.email);
 
-    return res.status(200).json(
-        new ApiResponse(
-            200,
-            {
-                email: existedUser.email,
-                isVerified: existedUser.isVerified,
-            },
-            "otp is verified successfully"
-        )
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+        existedUser._id
     );
+
+    const user = await sanitizeUser(existedUser._id);
+    if (!user) throw new ApiError(404, "user not found");
+
+    setAuthCookies(res, accessToken, refreshToken);
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                { user, accessToken, refreshToken },
+                "OTP verified & user logged in"
+            )
+        );
 });
 
 export const loginUser = asyncHandler(async (req, res) => {
@@ -159,24 +168,17 @@ export const loginUser = asyncHandler(async (req, res) => {
         existedUser._id
     );
 
-    const user = await User.findById(existedUser._id).select(
-        "-password -refreshToken"
-    );
+    const user = await sanitizeUser(existedUser._id);
     if (!user) throw new ApiError(404, "user not found");
 
-    const options = {
-        httpOnly: true,
-        secure: true,
-    };
+    setAuthCookies(res, accessToken, refreshToken);
 
     return res
         .status(200)
-        .cookie("accessToken", accessToken, options)
-        .cookie("refreshToken", refreshToken, options)
         .json(
             new ApiResponse(
                 200,
-                { user: user, accessToken, refreshToken },
+                { user, accessToken, refreshToken },
                 "user logged in successfully"
             )
         );
