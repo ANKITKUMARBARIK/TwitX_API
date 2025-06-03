@@ -5,6 +5,7 @@ import {
     resendOtpSignup,
     loginUser,
     googleOAuthLogin,
+    githubOAuthLogin,
 } from "../controllers/auth.controller.js";
 import upload from "../middlewares/multer.middleware.js";
 
@@ -25,5 +26,7 @@ router.route("/resend-signup").post(resendOtpSignup);
 router.route("/login").post(loginUser);
 
 router.route("/google").post(googleOAuthLogin);
+
+router.route("/github").post(githubOAuthLogin);
 
 export default router;
