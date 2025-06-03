@@ -10,6 +10,8 @@ import verifySignupMail from "../services/verifySignupMail.service.js";
 import welcomeSignupMail from "../services/welcomeSignupMail.service.js";
 import generateAccessAndRefreshToken from "../services/token.service.js";
 import { sanitizeUser, setAuthCookies } from "../utils/auth.util.js";
+import { OAuth2Client } from "google-auth-library";
+import crypto from "crypto";
 import User from "../models/user.model.js";
 
 export const registerUser = asyncHandler(async (req, res) => {
@@ -244,3 +246,93 @@ export const loginUser = asyncHandler(async (req, res) => {
             )
         );
 });
+
+// OAuth manually (without passport.js)
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+export const googleOAuthLogin = asyncHandler(async (req, res) => {
+    const { credential } = req.body;
+    if (!credential) throw new ApiError(400, "credential is missing");
+
+    const ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name, picture } = payload;
+
+    let existedUser = await User.findOne({ email });
+    if (!existedUser) {
+        const randomPassword = crypto.randomBytes(20).toString("hex");
+        existedUser = new User({
+            fullName: name,
+            username: email.split("@")[0],
+            email: email,
+            password: randomPassword,
+            avatar: picture,
+            timezone: "Asia/Kolkata",
+            authProvider: "google",
+            isVerified: true,
+        });
+        await existedUser.save();
+
+        await welcomeSignupMail(existedUser.fullName, existedUser.email);
+    }
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+        existedUser._id
+    );
+
+    const user = await sanitizeUser(existedUser._id);
+    if (!user) throw new ApiError(404, "user not found");
+
+    setAuthCookies(res, accessToken, refreshToken);
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                { user, accessToken, refreshToken },
+                "user - GOOGLE logged in successfully"
+            )
+        );
+});
+
+/* 
+NOTE :-
+    ->  ✅ How to get a valid Google ID Token from OAuth Playground for backend testing:
+
+    ->  Go to Google Cloud Console
+    ->  Select your project → Go to APIs & Services > Credentials
+    ->  Click your OAuth 2.0 Client ID
+    ->  In Authorized redirect URIs, add:
+    ->  https://developers.google.com/oauthplayground
+    ->  Save the changes ✅
+
+    ->  Now go to Google OAuth Playground
+
+    ->  Click the gear icon (⚙️) at the top right
+    ->  Check "Use your own OAuth credentials"
+    ->  Paste your Client ID and Client Secret (from Cloud Console)
+    ->  Click Close
+
+    ->  In Step 1:
+    ->  Under "Select & authorize APIs", scroll down
+    ->  Expand Google OAuth 2.0 API v2
+
+    ->  Select:
+    ->  https://www.googleapis.com/auth/userinfo.email  
+    ->  https://www.googleapis.com/auth/userinfo.profile  
+    ->  openid
+
+    ->  Click Authorize APIs
+    ->  Sign in with your Google account when prompted
+    ->  In Step 2: Click Exchange authorization code for tokens
+    ->  Scroll down and copy the id_token from the response
+    ->  Now use this id_token as the credential field in your backend API (e.g. via Postman):
+
+    ->  {
+    ->      "credential": "PASTE_YOUR_ID_TOKEN_HERE"
+    ->  }
+*/

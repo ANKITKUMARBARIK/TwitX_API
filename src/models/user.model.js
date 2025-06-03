@@ -45,6 +45,20 @@ const userSchema = new Schema(
             required: [true, "timezone is required"],
             default: "Asia/Kolkata",
         },
+        authProvider: {
+            type: String,
+            enum: [
+                "local",
+                "google",
+                "github",
+                "linkedin",
+                "facebook",
+                "twitter",
+                "apple",
+                "microsoft",
+            ],
+            default: "local",
+        },
         role: {
             type: String,
             enum: ["USER", "ADMIN"],
