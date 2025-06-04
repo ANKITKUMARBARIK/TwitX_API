@@ -14,3 +14,14 @@ export const setAuthCookies = (res, accessToken, refreshToken) => {
         .cookie("accessToken", accessToken, options)
         .cookie("refreshToken", refreshToken, options);
 };
+
+export const clearAuthCookies = (res) => {
+    const options = {
+        httpOnly: true,
+        secure: true,
+    };
+
+    return res
+        .clearCookie("accessToken", options)
+        .clearCookie("refreshToken", options);
+};

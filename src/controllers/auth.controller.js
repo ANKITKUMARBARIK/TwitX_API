@@ -9,7 +9,11 @@ import generateSignupOtp from "../utils/generateSignupOtp.util.js";
 import verifySignupMail from "../services/verifySignupMail.service.js";
 import welcomeSignupMail from "../services/welcomeSignupMail.service.js";
 import generateAccessAndRefreshToken from "../services/token.service.js";
-import { sanitizeUser, setAuthCookies } from "../utils/auth.util.js";
+import {
+    sanitizeUser,
+    setAuthCookies,
+    clearAuthCookies,
+} from "../utils/auth.util.js";
 import { OAuth2Client } from "google-auth-library";
 import crypto from "crypto";
 import axios from "axios";
@@ -553,4 +557,19 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
                 "access token refreshed successfully"
             )
         );
+});
+
+export const logoutUser = asyncHandler(async (req, res) => {
+    const existedUser = await User.findByIdAndUpdate(
+        req.user._id,
+        { $unset: { refreshToken: 1 } },
+        { new: true }
+    );
+    if (!existedUser) throw new ApiError();
+
+    clearAuthCookies(res);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "user logged out successfully"));
 });
