@@ -13,6 +13,8 @@ import { sanitizeUser, setAuthCookies } from "../utils/auth.util.js";
 import { OAuth2Client } from "google-auth-library";
 import crypto from "crypto";
 import axios from "axios";
+import generateForgetPasswordToken from "../utils/generateFrogetPasswordToken.util.js";
+import tokenVerifyMail from "../services/tokenVerifyMail.service.js";
 import User from "../models/user.model.js";
 
 export const registerUser = asyncHandler(async (req, res) => {
@@ -453,3 +455,68 @@ NOTE :-
 
     ->  ✅ You'll get a response.
 */
+
+export const forgetUserPassword = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    if (!email?.trim()) throw new ApiError(400, "email is required");
+
+    const token = generateForgetPasswordToken();
+    const expiry = Date.now() + 3600000;
+
+    const existedUser = await User.findOneAndUpdate(
+        { email },
+        { $set: { forgetPasswordToken: token, forgetPasswordExpiry: expiry } },
+        { new: true }
+    );
+    if (!existedUser) throw new ApiError(404, "email does not exists");
+
+    await tokenVerifyMail(
+        existedUser.fullName,
+        existedUser.email,
+        existedUser.forgetPasswordToken
+    );
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                { email: existedUser.email },
+                "token generated - check your email to reset your password"
+            )
+        );
+});
+
+export const resetUserPassword = asyncHandler(async (req, res) => {
+    const { token } = req.params;
+    const { newPassword, confirmPassword } = req.body;
+
+    if (!token?.trim()) throw new ApiError(400, "token is required");
+
+    if ([newPassword, confirmPassword].some((field) => !field?.trim()))
+        throw new ApiError(400, "both fields are required");
+
+    if (newPassword !== confirmPassword)
+        throw new ApiError(400, "new and confirm password must be same");
+
+    const existedUser = await User.findOne({
+        forgetPasswordToken: token,
+        forgetPasswordExpiry: { $gt: new Date() },
+    });
+    if (!existedUser) throw new ApiError(404, "invalid or expired token");
+
+    existedUser.forgetPasswordToken = undefined;
+    existedUser.forgetPasswordExpiry = undefined;
+    existedUser.password = confirmPassword;
+    await existedUser.save();
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                { email: existedUser.email },
+                "password reset successfully. You can now log in with your new password."
+            )
+        );
+});
