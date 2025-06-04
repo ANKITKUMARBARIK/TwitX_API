@@ -565,7 +565,7 @@ export const logoutUser = asyncHandler(async (req, res) => {
         { $unset: { refreshToken: 1 } },
         { new: true }
     );
-    if (!existedUser) throw new ApiError();
+    if (!existedUser) throw new ApiError(404, "user not found");
 
     clearAuthCookies(res);
 
