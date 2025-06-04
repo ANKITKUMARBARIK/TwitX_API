@@ -8,6 +8,7 @@ import {
     githubOAuthLogin,
     forgetUserPassword,
     resetUserPassword,
+    refreshAccessToken,
 } from "../controllers/auth.controller.js";
 import upload from "../middlewares/multer.middleware.js";
 
@@ -34,5 +35,7 @@ router.route("/github").post(githubOAuthLogin);
 router.route("/forget-password").post(forgetUserPassword);
 
 router.route("/reset-password/:token").post(resetUserPassword);
+
+router.route("/refresh-token").post(refreshAccessToken);
 
 export default router;
